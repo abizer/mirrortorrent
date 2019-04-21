@@ -2,9 +2,9 @@ import networkx as nx
 import math
 import random
 
-def relax_dummy(G, node):
-	node['data'] = [i for i in range(500)]
-
+###########################################################################
+#                   Graph Utilities.                                      #
+###########################################################################
 def get_missing_data(node, all_data):
 	"""
 	Takes in a node, and all_data that exists to be distributed.
@@ -37,39 +37,6 @@ def get_suppliable_missing_data(node, missing_data):
 			suppliable_missing_data[key] = suppliable_data
 
 	return suppliable_missing_data
-
-def relax_send_equal(G, node, all_data):
-	"""
-	This relax method is a send-based relaxation.
-	
-	The node passed in, N, checks its neighbors to 
-	see what data they don't yet have, and intersects
-	that with the data that N has.
-
-	N then 'equally' shares its available bandwidth
-	with all the nodes that still need data.
-
-	The context for this method only makes sense
-	when considering a graph with link bandwidths
-	to all neighbors.
-	"""
-	neighbors = G.neighbors(node)
-	bandwidth = G.nodes[node]['bw']
-
-	missing_data = get_missing_data(node, all_data)
-	suppliable_missing_data = get_suppliable_missing_data(node, missing_data)
-
-	for n in suppliable_missing_data:
-		target_bw = math.ceil(bandwidth / len(suppliable_missing_data))
-		link_bw = G[node][n]['weight']
-		remaining_send_bw = bandwidth - G.nodes[node]['send_util']
-		remaining_recv_bw = G.nodes[n]['bw'] - G.nodes[n]['rcv_util']
-
-		sendable_bw = min(target_bw, link_bw, remaining_send_bw, remaining_recv_bw)
-
-		data_to_send = random.sample(suppliable_missing_data[n], sendable_bw)
-		send(G, node, n, set(data_to_send))
-
 
 def send(G, sender, reciever, data):
 	"""First, ensures the following.
@@ -105,6 +72,7 @@ def send(G, sender, reciever, data):
 	reciever['rcv_util'] += len(data)
 	sender['send_util'] += len(data)
 
+
 def get_util_percents(G):
 	"""Returns the percentage of the send, recv 
 	utilization for the graph. 
@@ -136,7 +104,6 @@ def reset_utils(G):
 		G.nodes[node]['send_util'] = 0
 		G.nodes[node]['rcv_util'] = 0
 
-
 def completed(G, all_data):
 	"""
 	Returns whether or not the process is complete.
@@ -148,6 +115,48 @@ def completed(G, all_data):
 			return False
 	return True
 
+
+###############################################################################
+#                         Relax methods                                       #
+###############################################################################
+def relax_dummy(G, node):
+	node['data'] = [i for i in range(500)]
+
+def relax_send_equal(G, node, all_data):
+	"""
+	This relax method is a send-based relaxation.
+	
+	The node passed in, N, checks its neighbors to 
+	see what data they don't yet have, and intersects
+	that with the data that N has.
+
+	N then 'equally' shares its available bandwidth
+	with all the nodes that still need data.
+
+	The context for this method only makes sense
+	when considering a graph with link bandwidths
+	to all neighbors.
+	"""
+	neighbors = G.neighbors(node)
+	bandwidth = G.nodes[node]['bw']
+
+	missing_data = get_missing_data(node, all_data)
+	suppliable_missing_data = get_suppliable_missing_data(node, missing_data)
+
+	for n in suppliable_missing_data:
+		target_bw = math.ceil(bandwidth / len(suppliable_missing_data))
+		link_bw = G[node][n]['weight']
+		remaining_send_bw = bandwidth - G.nodes[node]['send_util']
+		remaining_recv_bw = G.nodes[n]['bw'] - G.nodes[n]['rcv_util']
+
+		sendable_bw = min(target_bw, link_bw, remaining_send_bw, remaining_recv_bw)
+
+		data_to_send = random.sample(suppliable_missing_data[n], sendable_bw)
+		send(G, node, n, set(data_to_send))
+
+##################################################################################
+#                         Graph topologies                                       #
+##################################################################################
 def make_graph(num_nodes, all_data, edges=None):
 	"""
 	TODO: Add comment here, and find a way to 
@@ -172,18 +181,18 @@ def make_graph(num_nodes, all_data, edges=None):
 
 	return G
 
-G = make_graph(100, set([i for i in range(5)]))
 
+if __name__ == "__main__":
+	G = make_graph(100, set([i for i in range(5)]))
+	time = 0
 
-time = 0
+	while not completed(G, G.nodes[0]['data']):
+		for node in G.nodes:
+			relax_send_equal(G, node, set([i for i in range(5)]))
+		# print(G.nodes.data())
+		time += 1
+		print(get_util_percents(G))
+		reset_utils(G)
+		
 
-while not completed(G, G.nodes[0]['data']):
-	for node in G.nodes:
-		relax_send_equal(G, node, set([i for i in range(5)]))
-	# print(G.nodes.data())
-	time += 1
-	print(get_util_percents(G))
-	reset_utils(G)
-	
-
-time_to_completion = time
+	time_to_completion = time
