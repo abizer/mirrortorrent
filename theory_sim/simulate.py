@@ -1,11 +1,14 @@
 import networkx as nx
 import math
 import random
+from prettytable import PrettyTable
+
+DEBUG = True
 
 ###########################################################################
 #                   Graph Utilities.                                      #
 ###########################################################################
-def get_missing_data(node, all_data):
+def get_missing_data(G, node, all_data):
 	"""
 	Takes in a node, and all_data that exists to be distributed.
 	Computes a map from node.neighbors -> data they are missing.
@@ -18,7 +21,7 @@ def get_missing_data(node, all_data):
 
 	return missing_data
 
-def get_suppliable_missing_data(node, missing_data):
+def get_suppliable_missing_data(G, node, missing_data):
 	"""
 	Takes in a node, and a map from node.neighbors -> missing data.
 	Returns a map from 
@@ -115,6 +118,13 @@ def completed(G, all_data):
 			return False
 	return True
 
+def print_data(G):
+	t = PrettyTable(['Node', 'Total Data'])
+
+	for node in G.nodes:
+		t.add_row([node, len(G.nodes[node]['data'])])
+		
+	print(t)
 
 ###############################################################################
 #                         Relax methods                                       #
@@ -140,8 +150,10 @@ def relax_send_equal(G, node, all_data):
 	neighbors = G.neighbors(node)
 	bandwidth = G.nodes[node]['bw']
 
-	missing_data = get_missing_data(node, all_data)
-	suppliable_missing_data = get_suppliable_missing_data(node, missing_data)
+	missing_data = get_missing_data(G, node, all_data)
+	suppliable_missing_data = get_suppliable_missing_data(G, node, missing_data)
+
+	# print(node, suppliable_missing_data)
 
 	for n in suppliable_missing_data:
 		target_bw = math.ceil(bandwidth / len(suppliable_missing_data))
@@ -151,48 +163,76 @@ def relax_send_equal(G, node, all_data):
 
 		sendable_bw = min(target_bw, link_bw, remaining_send_bw, remaining_recv_bw)
 
-		data_to_send = random.sample(suppliable_missing_data[n], sendable_bw)
+		data_to_send = random.sample(suppliable_missing_data[n], min(sendable_bw, len(suppliable_missing_data[n])))
 		send(G, node, n, set(data_to_send))
 
 ##################################################################################
 #                         Graph topologies                                       #
 ##################################################################################
-def make_graph(num_nodes, all_data, edges=None):
+def make_graph(num_nodes, all_data, bandwidths, edges):
 	"""
-	TODO: Add comment here, and find a way to 
-	use the edges parameter.
+	num_nodes: Number of nodes in the graph.
+	all_data: A set of the data that is to be transferred.
+	bandwidths: A list whose len is num_nodes. Contains the
+				bandwidth that the node can support.
+	edges: A map containing keys 0...num_nodes-1, and values
+		   that are lists of size num_nodes, containing the
+		   link capacities from key->index. 
+		   Note that edges[x][x] is always ignored. 
 	"""
+	assert len(bandwidths) == num_nodes
+	assert len(edges) == num_nodes
+
 	G = nx.DiGraph()
 	for i in range(num_nodes):
 		for j in range(num_nodes):
 			if i != j:
-				G.add_edge(i, j, weight=1)
+				G.add_edge(i, j, weight=edges[i][j])
 
 	G.nodes[0]['data'] = all_data
-	G.nodes[0]['bw'] = 4
+	G.nodes[0]['bw'] = bandwidths[0]
 	G.nodes[0]['send_util'] = 0
 	G.nodes[0]['rcv_util'] = 0
 
 	for i in range(1, len(G.nodes)):
 		G.nodes[i]['data'] = set()
-		G.nodes[i]['bw'] = 4
+		G.nodes[i]['bw'] = bandwidths[i]
 		G.nodes[i]['send_util'] = 0
 		G.nodes[i]['rcv_util'] = 0
 
 	return G
 
+def make_boring_graph(num_nodes, all_data, bandwidth, link_cap):
+	bandwidths = [bandwidth for i in range(num_nodes)]
+	edges = {k: [link_cap for k in range(num_nodes)] for k in range(num_nodes)}
+
+	G = make_graph(num_nodes, all_data, bandwidths, edges)
+	return G
+
+
+
+
+
 
 if __name__ == "__main__":
-	G = make_graph(100, set([i for i in range(5)]))
+	all_data = set([i for i in range(500)])
+
+
+	G = make_boring_graph(100, all_data, 4, 100)
 	time = 0
 
 	while not completed(G, G.nodes[0]['data']):
 		for node in G.nodes:
-			relax_send_equal(G, node, set([i for i in range(5)]))
+			relax_send_equal(G, node, all_data)
 		# print(G.nodes.data())
 		time += 1
 		print(get_util_percents(G))
 		reset_utils(G)
+
+		if DEBUG:
+			print_data(G)
 		
 
 	time_to_completion = time
+
+	print("Completion time was", time_to_completion)
