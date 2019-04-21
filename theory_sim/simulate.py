@@ -283,6 +283,11 @@ def make_graph(num_nodes, all_data, bandwidths, edges):
 
 
 def make_boring_graph(num_nodes, all_data, bandwidth, link_cap):
+    """
+    Makes a boring graph with `num_nodes` nodes. The bandwidth 
+    and link capacities of all nodes are `bandwidth` and `link_cap`
+    respectively.
+    """
     bandwidths = [bandwidth for i in range(num_nodes)]
     edges = {k: [link_cap for k in range(num_nodes)] for k in range(num_nodes)}
 
