@@ -166,6 +166,12 @@ def relax_send_equal(G, node, all_data):
 		data_to_send = random.sample(suppliable_missing_data[n], min(sendable_bw, len(suppliable_missing_data[n])))
 		send(G, node, n, set(data_to_send))
 
+def RELAX_X_TEMPLATE(G, node, add_data):
+	"""
+	To write more relax methods, make methods of this form.
+	"""
+	pass
+
 ##################################################################################
 #                         Graph topologies                                       #
 ##################################################################################
@@ -209,15 +215,20 @@ def make_boring_graph(num_nodes, all_data, bandwidth, link_cap):
 	G = make_graph(num_nodes, all_data, bandwidths, edges)
 	return G
 
+def MAKE_X_GRAPH():
+	"""
+	To create a new topology, write a method here that takes in arguments and
+	ultimately calls `make_graph` and returns it.
+	"""
+	pass
 
 
 
-
-
+######################################################################
+#                   Simulation                                       #
+######################################################################
 if __name__ == "__main__":
 	all_data = set([i for i in range(500)])
-
-
 	G = make_boring_graph(100, all_data, 4, 100)
 	time = 0
 
