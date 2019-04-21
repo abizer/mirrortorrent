@@ -5,6 +5,38 @@ import random
 def relax_dummy(G, node):
 	node['data'] = [i for i in range(500)]
 
+def get_missing_data(node, all_data):
+	"""
+	Takes in a node, and all_data that exists to be distributed.
+	Computes a map from node.neighbors -> data they are missing.
+	Returns the map.
+	"""
+	neighbors = G.neighbors(node)
+	missing_data = {}
+	for n in neighbors:
+		missing_data[n] = all_data.difference(G.nodes[n]['data'])
+
+	return missing_data
+
+def get_suppliable_missing_data(node, missing_data):
+	"""
+	Takes in a node, and a map from node.neighbors -> missing data.
+	Returns a map from 
+
+	node.neighbors which haven't saturated their rcv_util -> 
+							intersection(missing data, data with node).
+
+	This map is essentially a map from nodes to whom data can be supplied,
+	to the data that can be supplied.
+	"""
+	suppliable_missing_data = {}
+
+	for key, value in missing_data.items():
+		suppliable_data = value.intersection(G.nodes[node]['data'])
+		if suppliable_data and (G.nodes[key]['rcv_util'] != G.nodes[key]['bw']): 
+			suppliable_missing_data[key] = suppliable_data
+
+	return suppliable_missing_data
 
 def relax_send_equal(G, node, all_data):
 	"""
@@ -24,16 +56,8 @@ def relax_send_equal(G, node, all_data):
 	neighbors = G.neighbors(node)
 	bandwidth = G.nodes[node]['bw']
 
-	missing_data = {}
-	suppliable_missing_data = {}
-
-	for n in neighbors:
-		missing_data[n] = all_data.difference(G.nodes[n]['data'])
-
-	for key, value in missing_data.items():
-		suppliable_data = value.intersection(G.nodes[node]['data'])
-		if suppliable_data and (G.nodes[key]['rcv_util'] != G.nodes[key]['bw']): 
-			suppliable_missing_data[key] = suppliable_data
+	missing_data = get_missing_data(node, all_data)
+	suppliable_missing_data = get_suppliable_missing_data(node, missing_data)
 
 	for n in suppliable_missing_data:
 		target_bw = math.ceil(bandwidth / len(suppliable_missing_data))
@@ -96,9 +120,9 @@ def get_util_percents(G):
 	used_send_bw = 0
 	used_rcv_bw = 0
 	for node in G:
-		total_bw += G[node]['bw']
-		used_send_bw += G[node]['send_util']
-		used_rcv_bw += G[node]['rcv_util']
+		total_bw += G.nodes[node]['bw']
+		used_send_bw += G.nodes[node]['send_util']
+		used_rcv_bw += G.nodes[node]['rcv_util']
 
 	return used_send_bw/total_bw, used_rcv_bw/total_bw
 
@@ -156,8 +180,10 @@ time = 0
 while not completed(G, G.nodes[0]['data']):
 	for node in G.nodes:
 		relax_send_equal(G, node, set([i for i in range(5)]))
-	print(G.nodes.data())
+	# print(G.nodes.data())
 	time += 1
+	print(get_util_percents(G))
 	reset_utils(G)
+	
 
 time_to_completion = time
