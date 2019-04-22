@@ -3,8 +3,10 @@ import math
 import random
 from prettytable import PrettyTable
 import logging
+import matplotlib.pyplot as plt
 
-logging.basicConfig(filename='example.log',level=logging.INFO)
+
+logging.basicConfig(filename="example.log", level=logging.INFO)
 ###########################################################################
 #                   Graph Utilities.                                      #
 ###########################################################################
@@ -77,30 +79,34 @@ def send(G, sender, reciever, data):
     reciever["rcv_util"] += len(data)
     sender["send_util"] += len(data)
 
-    
     logging.debug(f"{sender_num} is sending {len(data)} to {reciever_num}")
 
 
-def get_util_percents(G):
+def get_util_percents(G, all_data):
     """Returns the percentage of the send, recv 
     utilization for the graph. 
 
     This should be called at the end of a time step.
-
-    TODO: As it stands, this doesn't really make
-    complete sense. For instance, is a node HAS
-    all the data, its recv util will be 0, and so
-    we might mis-report.
     """
-    total_bw = 0
-    used_send_bw = 0
+    total_possible_bw = 0
     used_rcv_bw = 0
     for node in G:
-        total_bw += G.nodes[node]["bw"]
-        used_send_bw += G.nodes[node]["send_util"]
+        # At this time step, compute how much data we recieved.
         used_rcv_bw += G.nodes[node]["rcv_util"]
 
-    return used_send_bw / total_bw, used_rcv_bw / total_bw
+        # Then compute how much data we were missing at the START of this time step.
+        # Suppose at the start of this time step, I had 85 units of data.
+        # rcv_util now is 5 (so I am getting 5 more units at this time step.)
+        # G.nodes[node]["data"] is therefore equal to 90.
+        # all_data is 100 units.
+        # So 100 - 90 + 5 is how much data I was missing at the beginning.
+        max_possible_recv = len(all_data) - len(G.nodes[node]["data"]) + used_rcv_bw
+
+        # My total recieve util could be at most either the data I had to recieve
+        # or my total bnadiwdth, and no more.
+        total_possible_bw += min(max_possible_recv, G.nodes[node]["bw"])
+
+    return used_rcv_bw / total_possible_bw
 
 
 def reset_utils(G):
@@ -141,6 +147,22 @@ def get_max_possible_rate(G, sender, reciever):
     remaining_recv_bw = G.nodes[reciever]["bw"] - G.nodes[reciever]["rcv_util"]
 
     return min(link_bw, remaining_recv_bw, remaining_send_bw)
+
+
+def draw_graph(G, filename):
+    """
+    Draw the graph and save it.
+    Probably don't call it on anything with more than ~8 nodes otherwise
+    it doesn't look good.
+    """
+    pos = nx.spring_layout(G)
+    nx.draw(G, pos)
+    labels = nx.get_edge_attributes(G, "weight")
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+    nx.draw_networkx_labels(G, pos, labels=nx.get_node_attributes(G, "bw"))
+
+    plt.savefig(filename)
+    plt.close("all")
 
 
 ###############################################################################
@@ -184,6 +206,7 @@ def relax_send_equal(G, node, all_data):
         )
         send(G, node, n, set(data_to_send))
 
+
 def relax_fully_random(G, node, all_data):
     """
     A totally random relaxation.
@@ -196,7 +219,7 @@ def relax_fully_random(G, node, all_data):
     # print(node, suppliable_missing_data)
 
     for n in suppliable_missing_data:
-        target_bw = random.randint(0, G.nodes[node]['bw'] - G.nodes[node]['send_util'])
+        target_bw = random.randint(0, G.nodes[node]["bw"] - G.nodes[node]["send_util"])
         max_possible = get_max_possible_rate(G, node, n)
 
         sendable_bw = min(target_bw, max_possible)
@@ -205,6 +228,7 @@ def relax_fully_random(G, node, all_data):
             min(sendable_bw, len(suppliable_missing_data[n])),
         )
         send(G, node, n, set(data_to_send))
+
 
 def relax_send_greedy(G, node, add_data):
     """
@@ -331,17 +355,25 @@ def MAKE_X_GRAPH():
 if __name__ == "__main__":
     all_data = set([i for i in range(1000)])
     # G = make_boring_graph(100, all_data, 4, 100)
-    G = make_highlow_graph(all_data, num_high_bw_nodes=20, num_low_bw_nodes=200, 
-                high_bw=100, low_bw=40, high_cap=10, low_cap=2)
+    G = make_highlow_graph(
+        all_data,
+        num_high_bw_nodes=15,
+        num_low_bw_nodes=40,
+        high_bw=100,
+        low_bw=40,
+        high_cap=10,
+        low_cap=2,
+    )
 
     time = 0
-
+    # draw_graph(G, "temp.png")
     while not completed(G, G.nodes[0]["data"]):
         for node in G.nodes:
-            relax_fully_random(G, node, all_data)
+            relax_send_greedy(G, node, all_data)
             # print(G.nodes.data())
         time += 1
-        logging.info(get_util_percents(G))
+        logging.info(get_util_percents(G, all_data))
+        print(get_util_percents(G, all_data))
         reset_utils(G)
         print_data(G)
 
