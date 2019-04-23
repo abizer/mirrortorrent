@@ -6,7 +6,7 @@ import logging
 import matplotlib.pyplot as plt
 
 
-logging.basicConfig(filename="example.log", level=logging.INFO)
+logging.basicConfig(filename="example.log", level=logging.DEBUG)
 ###########################################################################
 #                   Graph Utilities.                                      #
 ###########################################################################
@@ -74,12 +74,12 @@ def send(G, sender, reciever, data):
     assert len(data) + sender["send_util"] <= sender["bw"]
     assert len(data) + reciever["rcv_util"] <= reciever["bw"]
 
-    reciever["data"].update(data)
+    reciever["buffer"].update(data)
 
     reciever["rcv_util"] += len(data)
     sender["send_util"] += len(data)
 
-    logging.debug(f"{sender_num} is sending {len(data)} to {reciever_num}")
+    logging.debug(f"{sender_num} is sending {data}(size:{len(data)}) to {reciever_num}")
 
 
 def get_util_percents(G, all_data):
@@ -174,6 +174,16 @@ def draw_graph(G, filename):
 
     plt.savefig(filename)
     plt.close("all")
+
+def commit_buffer(G):
+    """
+    Commits the buffer placed in all nodes in the graph
+    to the actual data.
+    :param G: NetworkX Graph
+    :return: None
+    """
+    for node in G.nodes():
+        G.nodes[node]["data"].update(G.nodes[node]["buffer"])
 
 
 ###############################################################################
@@ -309,12 +319,14 @@ def make_graph(num_nodes, all_data, bandwidths, edges):
                 G.add_edge(i, j, weight=edges[i][j])
 
     G.nodes[0]["data"] = all_data
+    G.nodes[0]["buffer"] = set()
     G.nodes[0]["bw"] = bandwidths[0]
     G.nodes[0]["send_util"] = 0
     G.nodes[0]["rcv_util"] = 0
 
     for i in range(1, len(G.nodes)):
         G.nodes[i]["data"] = set()
+        G.nodes[i]["buffer"] = set()
         G.nodes[i]["bw"] = bandwidths[i]
         G.nodes[i]["send_util"] = 0
         G.nodes[i]["rcv_util"] = 0
@@ -369,28 +381,23 @@ def MAKE_X_GRAPH():
 #                   Simulation                                       #
 ######################################################################
 if __name__ == "__main__":
-    all_data = set([i for i in range(1000)])
+    all_data = set([i for i in range(4)])
     # G = make_boring_graph(100, all_data, 4, 100)
-    G = make_highlow_graph(
-        all_data,
-        num_high_bw_nodes=15,
-        num_low_bw_nodes=40,
-        high_bw=100,
-        low_bw=40,
-        high_cap=10,
-        low_cap=2,
+    G = make_boring_graph(
+        5, all_data, 4, 1
     )
 
     time = 0
     # draw_graph(G, "temp.png")
     while not completed(G, G.nodes[0]["data"]):
         for node in G.nodes:
-            relax_send_greedy(G, node, all_data)
+            relax_send_equal(G, node, all_data)
             # print(G.nodes.data())
         time += 1
         logging.info(get_util_percents(G, all_data))
         print(get_util_percents(G, all_data))
         reset_utils(G)
+        commit_buffer(G)
         print_data(G)
 
     time_to_completion = time
