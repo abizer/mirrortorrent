@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
 import networkx as nx
 import math
 import random
 from prettytable import PrettyTable
 import logging
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 logging.basicConfig(filename="example.log", level=logging.DEBUG)
@@ -160,20 +161,21 @@ def get_max_possible_rate(G, sender, receiver):
     return min(link_bw, remaining_recv_bw, remaining_send_bw)
 
 
-def draw_graph(G, filename):
-    """
-    Draw the graph and save it.
-    Probably don't call it on anything with more than ~8 nodes otherwise
-    it doesn't look good.
-    """
-    pos = nx.spring_layout(G)
-    nx.draw(G, pos)
-    labels = nx.get_edge_attributes(G, "weight")
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-    nx.draw_networkx_labels(G, pos, labels=nx.get_node_attributes(G, "bw"))
+# def draw_graph(G, filename):
+#     """
+#     Draw the graph and save it.
+#     Probably don't call it on anything with more than ~8 nodes otherwise
+#     it doesn't look good.
+#     """
+#     pos = nx.spring_layout(G)
+#     nx.draw(G, pos)
+#     labels = nx.get_edge_attributes(G, "weight")
+#     nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+#     nx.draw_networkx_labels(G, pos, labels=nx.get_node_attributes(G, "bw"))
 
-    plt.savefig(filename)
-    plt.close("all")
+#     plt.savefig(filename)
+#     plt.close("all")
+
 
 def commit_buffer(G):
     """
