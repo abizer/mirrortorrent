@@ -18,8 +18,8 @@ def get_missing_data(G, node, all_data):
     """
     neighbors = G.neighbors(node)
     missing_data = {}
-    for n in neighbors:
-        missing_data[n] = all_data.difference(G.nodes[n]["data"])
+    for neighbor in neighbors:
+        missing_data[neighbor] = all_data.difference(G.nodes[neighbor]["data"])
 
     return missing_data
 
@@ -37,10 +37,10 @@ def get_suppliable_missing_data(G, node, missing_data):
     """
     suppliable_missing_data = {}
 
-    for key, value in missing_data.items():
-        suppliable_data = value.intersection(G.nodes[node]["data"])
-        if suppliable_data and (G.nodes[key]["rcv_util"] != G.nodes[key]["bw"]):
-            suppliable_missing_data[key] = suppliable_data
+    for neighbor, neighbor_missingdata in missing_data.items():
+        suppliable_data = neighbor_missingdata.intersection(G.nodes[node]["data"])
+        if suppliable_data and (G.nodes[neighbor]["rcv_util"] != G.nodes[neighbor]["bw"]):
+            suppliable_missing_data[neighbor] = suppliable_data
 
     return suppliable_missing_data
 
@@ -141,10 +141,21 @@ def print_data(G):
     logging.info(t)
 
 
-def get_max_possible_rate(G, sender, reciever):
-    link_bw = G[sender][reciever]["weight"]
+def get_max_possible_rate(G, sender, receiver):
+    """
+    Returns the maximum possible rate at which sender can send
+    to receiver. This is calculated as the minimum of {the 
+    link bandwidth between the sender and receiver, the
+    remaining send bandwidth of the sender, and the remaining
+    receive bandwidth of the receiver" 
+    :param G: NetworkX Graph.
+    :param sender: Node (number) in networkX graph.
+    :param receiver: Node (number) in networkX graph.
+    :return: 
+    """
+    link_bw = G[sender][receiver]["weight"]
     remaining_send_bw = G.nodes[sender]["bw"] - G.nodes[sender]["send_util"]
-    remaining_recv_bw = G.nodes[reciever]["bw"] - G.nodes[reciever]["rcv_util"]
+    remaining_recv_bw = G.nodes[receiver]["bw"] - G.nodes[receiver]["rcv_util"]
 
     return min(link_bw, remaining_recv_bw, remaining_send_bw)
 
@@ -168,7 +179,7 @@ def draw_graph(G, filename):
 ###############################################################################
 #                         Relax methods                                       #
 ###############################################################################
-def relax_dummy(G, node):
+def relax_dummy(G, node, all_data):
     node["data"] = [i for i in range(500)]
 
 
@@ -187,7 +198,6 @@ def relax_send_equal(G, node, all_data):
     when considering a graph with link bandwidths
     to all neighbors.
     """
-    neighbors = G.neighbors(node)
     bandwidth = G.nodes[node]["bw"]
 
     missing_data = get_missing_data(G, node, all_data)
@@ -196,9 +206,11 @@ def relax_send_equal(G, node, all_data):
     # print(node, suppliable_missing_data)
 
     for n in suppliable_missing_data:
+        # The target bandwidth here is 'equally' splitting its
+        # bandwidth to each of the neighbors to whom data can be
+        # supplied
         target_bw = math.ceil(bandwidth / len(suppliable_missing_data))
         max_possible = get_max_possible_rate(G, node, n)
-
         sendable_bw = min(target_bw, max_possible)
         data_to_send = random.sample(
             suppliable_missing_data[n],
@@ -210,13 +222,17 @@ def relax_send_equal(G, node, all_data):
 def relax_fully_random(G, node, all_data):
     """
     A totally random relaxation.
+    
+    Randomly pick a target bandwidth by picking an integer between
+    [0, remaining send bandwidth], and send either that much data
+    or data equivalent to the maximum possible rate 
+    (whichever is greater).
+    
+    Note that ultimately, this style of random selection will lead to
+    `node` either fully or almost exhausting its send bandwidth. 
     """
-    neighbors = G.neighbors(node)
-
     missing_data = get_missing_data(G, node, all_data)
     suppliable_missing_data = get_suppliable_missing_data(G, node, missing_data)
-
-    # print(node, suppliable_missing_data)
 
     for n in suppliable_missing_data:
         target_bw = random.randint(0, G.nodes[node]["bw"] - G.nodes[node]["send_util"])
@@ -230,10 +246,12 @@ def relax_fully_random(G, node, all_data):
         send(G, node, n, set(data_to_send))
 
 
-def relax_send_greedy(G, node, add_data):
+def relax_send_greedy(G, node, all_data):
     """
-    For every node, find out what the highest capable
-    neighbors are, and send to them greedily.
+    For every node, figure out which nodes `node` can send to at the best rates.
+    For instance, suppose that `node` has 5 neighbors, and it can send to them at 
+    rates [20, 10, 15, 30, 50] –– first, it will send as much as possible to the
+    50-node, then if still possible, it will send to the 30-node, and so on. 
     """
     missing_data = get_missing_data(G, node, all_data)
     suppliable_missing_data = get_suppliable_missing_data(G, node, missing_data)
@@ -241,8 +259,6 @@ def relax_send_greedy(G, node, add_data):
     neighbors = G.neighbors(node)
     outgoing_caps = [(n, get_max_possible_rate(G, node, n)) for n in neighbors]
     outgoing_caps.sort(key=lambda x: -x[1])
-
-    remaining_outgoing_cap = G.nodes[node]["bw"] - G.nodes[node]["send_util"]
 
     for n, rate in outgoing_caps:
         remaining_outgoing_cap = G.nodes[node]["bw"] - G.nodes[node]["send_util"]
