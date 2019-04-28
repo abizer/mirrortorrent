@@ -6,15 +6,15 @@ import os
 
 
 
-SERVERS = [ # "268.0x00.sh",
-           "eun1a.268.0x00.sh", 
+SERVERS = [("root", "268.0x00.sh"),
+           ("ubuntu", "eun1a.268.0x00.sh"), 
            # "eun2a.268.0x00.sh", 
-           "euw1b.268.0x00.sh", 
-           "sae1a.268.0x00.sh", 
-           "use2a.268.0x00.sh", 
-           # "usnyc1.268.0x00.sh", 
+           ("ubuntu", "euw1b.268.0x00.sh"), 
+           ("ubuntu", "sae1a.268.0x00.sh"), 
+           ("ubuntu", "use2a.268.0x00.sh"), 
+           ("root", "usnyc1.268.0x00.sh"), 
            # "ussfo2.268.0x00.sh", 
-           "usw1a.268.0x00.sh"]
+           ("ubuntu", "usw1a.268.0x00.sh")]
 
 WATCH_FILES = "downloads/"
 WATCH_TORRENTS = "watch/"
@@ -36,7 +36,7 @@ def push(content_path, torrent_path):
 	ssh = SSHClient()
 	ssh.load_system_host_keys()
 	for server in SERVERS:
-		ssh.connect(hostname=server, username='ubuntu', key_filename="/Users/mudit2103/.ssh/mirrortorrent.pem")
+		ssh.connect(hostname=server[1], username=server[0], key_filename="/Users/mudit2103/.ssh/mirrortorrent.pem")
 	
 		# SCPCLient takes a paramiko transport as an argument
 		scp = SCPClient(ssh.get_transport())
