@@ -7,7 +7,7 @@ import csv
 import shutil
 import warnings
 import warnings
-from common import SERVERS, machine_name
+from common import SERVERS, machine_name, mkdir_safe
 
 def fetchall_vnstat(dirname):
 	"""
@@ -25,17 +25,7 @@ def fetchall_vnstat(dirname):
 	ssh.load_system_host_keys()
 
 
-	directory_path = "raw_outputs/" + dirname
-	# If the directory exists, ask user whether it should be deleted.
-	if (os.path.isdir(directory_path)):
-		print("WARNING: Directory exists and will be deleted. Continue? [y/Y]")
-		if input() in ['y', 'Y']:
-			shutil.rmtree(directory_path)
-		else:
-			exit()
-
-	# Create the inner directory.
-	os.mkdir("raw_outputs/" + dirname)
+	mkdir_safe(directory_path)
 
 	results = {}
 

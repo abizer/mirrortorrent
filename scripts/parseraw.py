@@ -8,23 +8,13 @@ import csv
 import shutil
 import warnings
 import warnings
-from common import SERVERS, machine_name
+from common import SERVERS, machine_name, mkdir_safe
 
 def parseraw_dir(dirname, start, end):
 	input_dirname = "raw_outputs/" + dirname
 	filepaths = [f for f in os.listdir(input_dirname) if isfile(join(input_dirname, f))]
 
-	directory_path = "parsed_outputs/" + dirname
-	# If the directory exists, ask user whether it should be deleted.
-	if (os.path.isdir(directory_path)):
-		print("WARNING: Directory exists and will be deleted. Continue? [y/Y]")
-		if input() in ['y', 'Y']:
-			shutil.rmtree(directory_path)
-		else:
-			exit()
-
-	# Create the inner directory.
-	os.mkdir("parsed_outputs/" + dirname)
+	mkdir_safe(directory_path)
 
 
 
